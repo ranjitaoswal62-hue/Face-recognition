@@ -5,6 +5,9 @@ from PIL import Image,ImageTk
 from tkinter import messagebox
 import mysql.connector
 import cv2
+import pandas as pd
+from tkinter import filedialog
+from PyPDF2 import PdfReader
 
 
 class student:
@@ -28,7 +31,8 @@ class student:
         self.var_phone=StringVar()
         self.var_address=StringVar()
         self.var_teacher=StringVar()
-        S
+        self.var_search=StringVar()
+        self.var_search_by=StringVar()
      
 
 
@@ -220,12 +224,13 @@ class student:
         radiobtn2=ttk.Radiobutton(class_student_frame,variable=self.var_radio1,text=" No Photo Sample",value="No")
         radiobtn2.grid(row=6,column=1)
 
-        #bbuttons Frame
+        #buttons Frame
         btn_frame=Frame(class_student_frame,bd=2,relief=RIDGE,bg="white")
         btn_frame.place(x=0,y=200,width=725,height=70)
 
         save_btn=Button(btn_frame,text="save",command=self.add_data,width=17,font=("times new roman",13,"bold"),bg="blue",fg="white")
         save_btn.grid(row=0,column=0)
+        
 
         update_btn=Button(btn_frame,text="update",command=self.update_data,width=17,font=("times new roman",13,"bold"),bg="blue",fg="white")
         update_btn.grid(row=0,column=1)
@@ -238,15 +243,18 @@ class student:
 
         btn_frame1=Frame(class_student_frame,bd=2,relief=RIDGE,bg="white")
         btn_frame1.place(x=0,y=235,width=715,height=35)
-
-
-        take_photo_btn=Button(btn_frame1,command=self.generate_dataset,text="Take Photo Sample",width=40,font=("times new roman",13,"bold"),bg="blue",fg="white")
+      
+        take_photo_btn=Button(btn_frame1,command=self.generate_dataset,text="Take Photo Sample",width=22,font=("times new roman",13,"bold"),bg="blue",fg="white")
         take_photo_btn.grid(row=0,column=0)
 
-        update_photo_btn=Button(btn_frame1,text="Update Photo Sample",width=40,font=("times new roman",13,"bold"),bg="blue",fg="white")
+        update_photo_btn=Button(btn_frame1,text="Update Photo Sample",width=22,font=("times new roman",13,"bold"),bg="blue",fg="white")
         update_photo_btn.grid(row=0,column=1)
+         
+         
+        import_btn = Button(btn_frame1,text="Import File",command=self.import_student_file, width=22,font=("times new roman",13,"bold"),bg="blue",fg="white")
+        import_btn.grid(row=0, column=2)
 
-
+       
         #Right label Frame
         Right_frame=LabelFrame(main_frame,bd=2,bg="white",relief=RIDGE,text="Student Details",font=("times new roman",12,"bold"))
         Right_frame.place(x=780,y=10,width=660,height=580)
@@ -265,18 +273,18 @@ class student:
         search_label=Label(search_frame,text="Search By:",font=("times new roman",12,"bold"),bg="red",fg="white")
         search_label.grid(row=0,column=0,padx=10,pady=5,sticky=W)
 
-        search_combo=ttk.Combobox(search_frame,font=("times new roman",12,"bold"),width=15,state="writeonly")
+        search_combo=ttk.Combobox(search_frame,textvariable=self.var_search_by,font=("times new roman",12,"bold"),width=15,state="readonly")
         search_combo["values"]=("select","Roll No","Phone No")  
         search_combo.current(0)
         search_combo.grid(row=0,column=1,padx=10,pady=5,sticky=W)
 
-        search_entry=ttk.Entry(search_frame,width=15,font=("times new roman",13,"bold"))
+        search_entry=ttk.Entry(search_frame,textvariable=self.var_search,width=15,font=("times new roman",13,"bold"))
         search_entry.grid(row=0,column=2,padx=10,pady=5,sticky=W)
 
-        search_btn=Button(search_frame,text="Search",width=10,font=("times new roman",13,"bold"),bg="blue",fg="white")
+        search_btn=Button(search_frame,text="Search",command=self.search_data,width=10,font=("times new roman",13,"bold"),bg="blue",fg="white")
         search_btn.grid(row=0,column=3)
 
-        showAll_btn=Button(search_frame,text="Show All",width=10,font=("times new roman",13,"bold"),bg="blue",fg="white")
+        showAll_btn=Button(search_frame,text="Show All",command=self.fetch_data,width=10,font=("times new roman",13,"bold"),bg="blue",fg="white")
         showAll_btn.grid(row=0,column=4)
 
         #=========table frame===========
@@ -335,42 +343,320 @@ class student:
 
    #=============function declaration==========
 
-    def add_data(self):
-        if self.var_dep.get()=="select Department" or self.var_std_name.get()=="" or self.va_std_id.get()=="":
-            messagebox.showerror("Error","All fields are required",parent=self.root)
-        else:
-            try:
-                conn=mysql.connector.connect(host="localhost",username="root",password="12345",database="face_recognition")
-                my_cursor=conn.cursor()
-                my_cursor.execute("insert into student values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",(
+   # ================= IMPORT STUDENT DATA FROM FILE =================
+    def import_student_file(self):
 
-                                                                                                               self.var_dep.get(),
-                                                                                                               self.var_course.get(),
-                                                                                                               self.var_year.get(),
-                                                                                                               self.var_semester.get(),
-                                                                                                               self.va_std_id.get(),
-                                                                                                               self.var_std_name.get(),
-                                                                                                               self.var_div.get(),
-                                                                                                               self.var_roll.get(),
-                                                                                                               self.var_gender.get(),
-                                                                                                               self.var_dob.get(),
-                                                                                                               self.var_email.get(),
-                                                                                                               self.var_phone.get(),
-                                                                                                               self.var_address.get(),
-                                                                                                               self.var_teacher.get(),
-                                                                                                               self.var_radio1.get()
-                                                                                                        ))
-                conn.commit()
-                self.fetch_data()
+        file_path = filedialog.askopenfilename(
+            title="Select File",
+            filetypes=(
+                ("CSV Files", "*.csv"),
+                ("Excel Files", "*.xlsx"),
+                ("PDF Files", "*.pdf"),
+                ("All Files", "*.*")
+            )
+        )
+
+        if file_path == "":
+            return
+
+        try:
+
+            conn = mysql.connector.connect(
+                host="localhost",
+                user="root",
+                password="12345",
+                database="face_recognition"
+            )
+
+            my_cursor = conn.cursor()
+
+            students = []
+
+            # ================= CSV FILE =================
+            if file_path.endswith(".csv"):
+
+                df = pd.read_csv(file_path)
+
+                for index, row in df.iterrows():
+
+                    # Duplicate Check
+                    my_cursor.execute(
+                        "SELECT * FROM student WHERE student_id=%s",
+                        (str(row['StudentId']),)
+                    )
+
+                    duplicate = my_cursor.fetchone()
+
+                    if duplicate:
+                        continue
+
+                    students.append((
+                        row['Department'],
+                        row['Course'],
+                        row['Year'],
+                        row['Semester'],
+                        str(row['StudentId']),
+                        row['Name'],
+                        row['Division'],
+                        str(row['Roll']),
+                        row['Gender'],
+                        row['DOB'],
+                        row['Email'],
+                        str(row['Phone']),
+                        row['Address'],
+                        row['Teacher'],
+                        "YES"
+                    ))
+
+            # ================= EXCEL FILE =================
+            elif file_path.endswith(".xlsx"):
+
+                df = pd.read_excel(file_path)
+
+                for index, row in df.iterrows():
+
+                    my_cursor.execute(
+                        "SELECT * FROM student WHERE student_id=%s",
+                        (str(row['StudentId']),)
+                    )
+
+                    duplicate = my_cursor.fetchone()
+
+                    if duplicate:
+                        continue
+
+                    students.append((
+                        row['Department'],
+                        row['Course'],
+                        row['Year'],
+                        row['Semester'],
+                        str(row['StudentId']),
+                        row['Name'],
+                        row['Division'],
+                        str(row['Roll']),
+                        row['Gender'],
+                        row['DOB'],
+                        row['Email'],
+                        str(row['Phone']),
+                        row['Address'],
+                        row['Teacher'],
+                        "YES"
+                    ))
+
+            # ================= PDF FILE =================
+            elif file_path.endswith(".pdf"):
+
+                pdf = PdfReader(file_path)
+
+                text = ""
+
+                for page in pdf.pages:
+                    text += page.extract_text()
+
+                lines = text.split("\n")
+
+                for line in lines:
+
+                    data = line.split(",")
+
+                    if len(data) == 14:
+
+                        my_cursor.execute(
+                            "SELECT * FROM student WHERE student_id=%s",
+                            (data[4],)
+                        )
+
+                        duplicate = my_cursor.fetchone()
+
+                        if duplicate:
+                            continue
+
+                        students.append((
+                            data[0],
+                            data[1],
+                            data[2],
+                            data[3],
+                            data[4],
+                            data[5],
+                            data[6],
+                            data[7],
+                            data[8],
+                            data[9],
+                            data[10],
+                            data[11],
+                            data[12],
+                            data[13],
+                            "YES"
+                        ))
+
+            # ================= INSERT MULTIPLE RECORDS =================
+            sql = """
+            INSERT INTO student
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            """
+
+            my_cursor.executemany(sql, students)
+
+            conn.commit()
+            conn.close()
+
+            self.fetch_data()
+
+            messagebox.showinfo(
+                "Success",
+                f"{len(students)} student records imported successfully",
+                parent=self.root
+            )
+
+        except Exception as es:
+
+            messagebox.showerror(
+                "Error",
+                f"Due To: {str(es)}",
+                parent=self.root
+            )
+
+   # ================= ADD DATA WITH DUPLICATE CHECK =================
+    def add_data(self):
+
+        if self.var_dep.get() == "select Department" or \
+        self.var_std_name.get() == "" or \
+        self.va_std_id.get() == "":
+
+            messagebox.showerror(
+                "Error",
+                "All fields are required",
+                parent=self.root
+            )
+            return
+
+        try:
+
+            conn = mysql.connector.connect(
+                host="localhost",
+                user="root",
+                password="12345",
+                database="face_recognition"
+            )
+
+            my_cursor = conn.cursor()
+
+            # ================= CHECK DUPLICATE STUDENT ID =================
+            my_cursor.execute(
+                "SELECT * FROM student WHERE student_id=%s",
+                (self.va_std_id.get(),)
+            )
+
+            id_result = my_cursor.fetchone()
+
+            if id_result:
+                messagebox.showerror(
+                    "Duplicate Error",
+                    "Student ID already exists",
+                    parent=self.root
+                )
                 conn.close()
-                messagebox.showinfo("Success","Student details have been added successfully",parent=self.root)
-            except Exception as es:
-                messagebox.showerror("Error",f"Due to {str(es)}",parent=self.root)
+                return
+
+            # ================= CHECK DUPLICATE ROLL NUMBER =================
+            my_cursor.execute(
+                "SELECT * FROM student WHERE Roll=%s",
+                (self.var_roll.get(),)
+            )
+
+            roll_result = my_cursor.fetchone()
+
+            if roll_result:
+                messagebox.showerror(
+                    "Duplicate Error",
+                    "Roll Number already exists",
+                    parent=self.root
+                )
+                conn.close()
+                return
+
+            # ================= CHECK DUPLICATE PHONE =================
+            my_cursor.execute(
+                "SELECT * FROM student WHERE Phone=%s",
+                (self.var_phone.get(),)
+            )
+
+            phone_result = my_cursor.fetchone()
+
+            if phone_result:
+                messagebox.showerror(
+                    "Duplicate Error",
+                    "Phone Number already exists",
+                    parent=self.root
+                )
+                conn.close()
+                return
+
+            # ================= CHECK DUPLICATE EMAIL =================
+            my_cursor.execute(
+                "SELECT * FROM student WHERE Email=%s",
+                (self.var_email.get(),)
+            )
+
+            email_result = my_cursor.fetchone()
+
+            if email_result:
+                messagebox.showerror(
+                    "Duplicate Error",
+                    "Email already exists",
+                    parent=self.root
+                )
+                conn.close()
+                return
+
+            # ================= INSERT DATA =================
+            my_cursor.execute(
+                """
+                INSERT INTO student
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                """,
+                (
+                    self.var_dep.get(),
+                    self.var_course.get(),
+                    self.var_year.get(),
+                    self.var_semester.get(),
+                    self.va_std_id.get(),
+                    self.var_std_name.get(),
+                    self.var_div.get(),
+                    self.var_roll.get(),
+                    self.var_gender.get(),
+                    self.var_dob.get(),
+                    self.var_email.get(),
+                    self.var_phone.get(),
+                    self.var_address.get(),
+                    self.var_teacher.get(),
+                    self.var_radio1.get()
+                )
+            )
+
+            conn.commit()
+            conn.close()
+
+            self.fetch_data()
+
+            messagebox.showinfo(
+                "Success",
+                "Student details added successfully",
+                parent=self.root
+            )
+
+        except Exception as es:
+
+            messagebox.showerror(
+                "Error",
+                f"Due To: {str(es)}",
+                parent=self.root
+            )
 
 
     #=================fetch data==================
     def fetch_data(self):
-        conn=mysql.connector.connect(host="localhost",username="root",password="12345",database="face_recognition")
+        conn=mysql.connector.connect(host="localhost",user="root",password="12345",database="face_recognition")
         my_cursor=conn.cursor()  
         my_cursor.execute("select * from student")
         data=my_cursor.fetchall()
@@ -412,26 +698,26 @@ class student:
             try:
                 Update=messagebox.askyesno("Update","Do you want to update this",parent=self.root)
                 if Update>0:
-                    conn=mysql.connector.connect(host="localhost",username="root",password="12345",database="face_recognition")
+                    conn=mysql.connector.connect(host="localhost",user="root",password="12345",database="face_recognition")
                     my_cursor=conn.cursor()
                     my_cursor.execute("update student set Dep=%s,course=%s,Year=%s,Semester=%s,Name=%s,Division=%s,Roll=%s,Gender=%s,Dob=%s,Email=%s,Phone=%s,Address=%s,Teacher=%s,Photosample=%s where student_id=%s",(
                                                                                                                                                                           
-                                                                                                                                                                            self.var_dep.get(),
-                                                                                                                                                                            self.var_course.get(),
-                                                                                                                                                                            self.var_semester.get(),
-                                                                                                                                                                            self.var_std_name.get(),
-                                                                                                                                                                            self.var_year.get(),
-                                                                                                                                                                            self.var_div.get(),
-                                                                                                                                                                            self.var_roll.get(),
-                                                                                                                                                                            self.var_gender.get(),
-                                                                                                                                                                            self.var_dob.get(),
-                                                                                                                                                                            self.var_email.get(),
-                                                                                                                                                                            self.var_phone.get(),
-                                                                                                                                                                            self.var_address.get(),
-                                                                                                                                                                            self.var_teacher.get(),
-                                                                                                                                                                            self.var_radio1.get(),
-                                                                                                                                                                            self.va_std_id.get()
-
+                                                                                                                                                                            
+                                                                                                                                                                                self.var_dep.get(),
+                                                                                                                                                                                self.var_course.get(),
+                                                                                                                                                                                self.var_year.get(),
+                                                                                                                                                                                self.var_semester.get(),
+                                                                                                                                                                                self.var_std_name.get(),
+                                                                                                                                                                                self.var_div.get(),
+                                                                                                                                                                                self.var_roll.get(),
+                                                                                                                                                                                self.var_gender.get(),
+                                                                                                                                                                                self.var_dob.get(),
+                                                                                                                                                                                self.var_email.get(),
+                                                                                                                                                                                self.var_phone.get(),
+                                                                                                                                                                                self.var_address.get(),
+                                                                                                                                                                                self.var_teacher.get(),
+                                                                                                                                                                                self.var_radio1.get(),
+                                                                                                                                                                                self.va_std_id.get()
                                                                                                                                                                         ))
                 else:
                     if not Update:
@@ -451,7 +737,7 @@ class student:
             try:
                 delete=messagebox.askyesno("student delete page","Do you want to delete this Student",parent=self.root)
                 if delete>0:
-                    conn=mysql.connector.connect(host="localhost",username="root",password="12345",database="face_recognition")
+                    conn=mysql.connector.connect(host="localhost",user="root",password="12345",database="face_recognition")
                     my_cursor=conn.cursor()
                     sql="delete from student WHERE Student_id=%s"
                     val=(self.va_std_id.get(),)
@@ -491,7 +777,7 @@ class student:
             messagebox.showerror("Error","All fields are required",parent=self.root)       
         else:
             try:
-                conn=mysql.connector.connect(host="localhost",username="root",password="12345",database="face_recognition")
+                conn=mysql.connector.connect(host="localhost",user="root",password="12345",database="face_recognition")
                 my_cursor=conn.cursor()
                 my_cursor.execute("select * from student")
                 myresult=my_cursor.fetchall()
@@ -548,15 +834,49 @@ class student:
                         break
                 cap.release()
                 cv2.destroyAllWindows()
-                messagebox.showinfo("Result","Generating data sets completed!!!",)
+                messagebox.showinfo("Result","Generating data sets completed!!!",parent=self.root)
             except Exception as es:
-                messagebox.showerror("Error",f"Due To:{str(es)}",parent=self.root)
+                messagebox.showerror("Error",f"Due To:{str(es)}",)
+
+
+    # =================== SEARCH FUNCTION ===================
+    def search_data(self):
+        search_by = self.var_search_by.get()
+        search_val = self.var_search.get().strip()
+
+        if search_by == "select":
+            messagebox.showerror("Error", "Please select a search category (Roll No or Phone No)", parent=self.root)
+            return
+        if search_val == "":
+            messagebox.showerror("Error", "Please enter a value to search", parent=self.root)
+            return
+
+        try:
+            conn = mysql.connector.connect(host="localhost", user="root", password="12345", database="face_recognition")
+            my_cursor = conn.cursor()
+
+            if search_by == "Roll No":
+                my_cursor.execute("SELECT * FROM student WHERE Roll=%s", (search_val,))
+            elif search_by == "Phone No":
+                my_cursor.execute("SELECT * FROM student WHERE Phone=%s", (search_val,))
+
+            rows = my_cursor.fetchall()
+            conn.close()
+
+            self.student_table.delete(*self.student_table.get_children())
+
+            if len(rows) == 0:
+                messagebox.showinfo("Not Found", f"No student found with {search_by}: {search_val}", parent=self.root)
+                self.fetch_data()   # reload all data if nothing found
+            else:
+                for row in rows:
+                    self.student_table.insert("", END, values=row)
+
+        except Exception as es:
+            messagebox.showerror("Error", f"Due to: {str(es)}", parent=self.root)
 
 
 if __name__ =="__main__":
     root=Tk()
     obj=student(root)
     root.mainloop()
-
-
-    
